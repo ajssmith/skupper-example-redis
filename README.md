@@ -1,1 +1,1 @@
-# skupper-example-redis
+# skupper-example-redis - Coming Soon
