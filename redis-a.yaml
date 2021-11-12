@@ -46,6 +46,8 @@ data:
     sentinel down-after-milliseconds redis-skupper 5000
     sentinel failover-timeout redis-skupper 10000
     sentinel parallel-syncs redis-skupper 1
+    sentinel announce-ip redis-sentinel-a
+    sentinel announce-port 26379
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -54,7 +56,7 @@ metadata:
   labels:
     name: redis-sentinal
 spec:
-  replicas: 1 
+  replicas: 1
   selector:
     matchLabels:
       name: redis-sentinal
@@ -79,8 +81,7 @@ spec:
           mountPath: /etc/redis
       initContainers:
         - name: init-conf
-          image: busybox
-          command: 
+          image: alpine
           command: ['sh', '-c', "cp /config/sentinel.conf /data"]
           volumeMounts:
           - name: redis-data
@@ -88,8 +89,8 @@ spec:
           - name: redis-config
             mountPath: /config
         - name: init-waitforsvc
-          image: busybox:1.28
-          command: ['sh', '-c', "until nslookup redis-server-a; do echo waiting for primary instance; sleep 2; done"]
+          image: alpine
+          command: ['sh', '-c', "until nslookup redis-server-a.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for primary instance; sleep 2; done"]
       volumes:
         - name: redis-config
           configMap:
