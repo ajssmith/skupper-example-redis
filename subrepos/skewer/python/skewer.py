@@ -61,6 +61,7 @@ _standard_steps = {
         "commands": [
             [{"run": "export KUBECONFIG=~/.kube/config-@namespace@"}],
             [{"run": "export KUBECONFIG=~/.kube/config-@namespace@"}],
+            [{"run": "export KUBECONFIG=~/.kube/config-@namespace@"}],            
         ],
     },
     "access_your_clusters": {
@@ -78,6 +79,10 @@ _standard_steps = {
             [
                 {"run": "kubectl create namespace @namespace@"},
                 {"run": "kubectl config set-context --current --namespace @namespace@"},
+            ],            
+            [
+                {"run": "kubectl create namespace @namespace@"},
+                {"run": "kubectl config set-context --current --namespace @namespace@"},
             ],
         ],
     },
@@ -89,6 +94,10 @@ _standard_steps = {
                 "run": "skupper init",
                 "await": ["deployment/skupper-service-controller", "deployment/skupper-router"],
             }],
+            [{
+                "run": "skupper init",
+                "await": ["deployment/skupper-service-controller", "deployment/skupper-router"],
+            }],            
             [{
                 "run": "skupper init --ingress none",
                 "await": ["deployment/skupper-service-controller", "deployment/skupper-router"],
@@ -103,6 +112,9 @@ _standard_steps = {
             [{
                 "run": "skupper status",
             }],
+            [{
+                "run": "skupper status",
+            }],            
             [{
                 "run": "skupper status",
             }],

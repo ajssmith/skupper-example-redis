@@ -1,5 +1,7 @@
 #!/bin/bash
 skupper gateway init
+# should add --wait to gateway
+sleep 10
 skupper gateway forward redis-server-a 6379
 skupper gateway forward redis-server-b 6380
 skupper gateway forward redis-server-c 6381

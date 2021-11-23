@@ -91,9 +91,15 @@ spec:
             mountPath: /data
           - name: redis-config
             mountPath: /config
-        - name: init-waitforsvc
+        - name: init-waitforsvc-a
           image: alpine
-          command: ['sh', '-c', "until nslookup redis-server-a.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for primary instance; sleep 2; done"]
+          command: ['sh', '-c', "until nslookup redis-server-a.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for redis a instance; sleep 2; done"]
+        - name: init-waitforsvc-b
+          image: alpine
+          command: ['sh', '-c', "until nslookup redis-server-b.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for redis b instance; sleep 2; done"]
+        - name: init-waitforsvc-c
+          image: alpine
+          command: ['sh', '-c', "until nslookup redis-server-c.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for redis c instance; sleep 2; done"]
       volumes:
         - name: redis-config
           configMap:

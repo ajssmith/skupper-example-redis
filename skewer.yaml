@@ -1,0 +1,311 @@
+title: Skupper Redis Example
+subtitle: A Redis primary cache with replicas deployed across Kubernetes clusters using Skupper
+overview: |
+  This example deploys a simple highly available Redis architecture with
+  Sentinel across multiple Kubernetes clusters using Skupper.
+
+  In addition to the Redis server and Redis Sentinel, the example
+  contains one service:
+
+  * A wiki-getter service that exposes an `/api/search?query=` endpoint. 
+    The server returns the result from the Redis cache if present otherwise
+    it will retrieve the query via the wiki api and cache the content via
+    the Redis primary server.
+
+  With Skupper, you can place the Redis primary server in one cluster and 
+  the replica servers in alternative clusters without requiring that
+  the servers be exposed to the public internet.
+
+prerequisites: !string prerequisites
+contexts:
+  west:
+    kubeconfig: ~/.kube/config-west
+    namespace: west
+  east:
+    kubeconfig: ~/.kube/config-east
+    namespace: east
+  north:
+    kubeconfig: ~/.kube/config-north
+    namespace: north
+steps:
+  - standard: configure_separate_console_sessions
+  - standard: access_your_clusters
+  - standard: set_up_your_namespaces
+  - standard: install_skupper_in_your_namespaces
+  - standard: check_the_status_of_your_namespaces
+  - title: Link your namespaces
+    preamble: !string link_your_namespaces_preamble
+    commands:
+      west:
+        - run: skupper token create ~/west.token --uses 2
+      east:
+        - run: skupper token create ~/east.token
+        - run: skupper link create ~/west.token
+      north:
+        - run: skupper link create ~/west.token
+        - run: skupper link create ~/east.token
+        - run: skupper link status --wait 30        
+    postamble: !string link_your_namespaces_postamble
+  - title: Deploy the Redis primary, replica and Sentinel servers
+    preamble: |
+      Use `kubectl apply` to deploy the primary server in `north` and
+      the replica servers in `west` and in `east`.
+    commands:
+      north:
+        - run: kubectl apply -f redis-a.yaml
+          await: [deployment/redis-server]
+      west:
+        - run: kubectl apply -f redis-b.yaml
+          await: [deployment/redis-server]
+      east:
+        - run: kubectl apply -f redis-c.yaml
+          await: [deployment/redis-server]
+  - title: Expose the Redis and Sentinel servers to the Skupper network
+    preamble: |
+      We now have three namepaces linked to form a Skupper network and 
+      have deployed the Redis servers. Expose the primary, replica and 
+      Sentinel service to the Skupper network.
+    commands:
+      north:
+        - run: ./expose-deployments-a.sh
+          output: |
+            deployment redis-server exposed as redis-server-a
+            deployment redis-sentinel exposed as redis-sentinel-a
+      west:
+        - run: ./expose-deployments-b.sh
+          output: |
+            deployment redis-server exposed as redis-server-b
+            deployment redis-sentinel exposed as redis-sentinel-b
+      east:
+        - run: ./expose-deployments-c.sh
+          output: |
+            deployment redis-server exposed as redis-server-c
+            deployment redis-sentinel exposed as redis-sentinel-c
+  - title: Observe the set of Redis server and Sentinel services exist in each site on the Skupper network
+    commands:
+      north:
+        - run: kubectl get services
+          output: |
+            NAME               TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)     AGE
+            redis-sentinel-a   ClusterIP   10.101.89.83     <none>        26379/TCP   8m1s
+            redis-sentinel-b   ClusterIP   10.98.239.225    <none>        26379/TCP   7m52s
+            redis-sentinel-c   ClusterIP   10.101.197.162   <none>        26379/TCP   7m43s
+            redis-server-a     ClusterIP   10.99.100.75     <none>        6379/TCP    8m1s
+            redis-server-b     ClusterIP   10.100.253.180   <none>        6379/TCP    7m52s
+            redis-server-c     ClusterIP   10.109.243.96    <none>        6379/TCP    7m49s
+      west:
+        - run: kubectl get service
+          output: |
+            NAME               TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)     AGE
+            redis-sentinel-a   ClusterIP   172.21.224.245   <none>        26379/TCP   9m38s
+            redis-sentinel-b   ClusterIP   172.21.25.14     <none>        26379/TCP   9m33s
+            redis-sentinel-c   ClusterIP   172.21.104.194   <none>        26379/TCP   9m24s
+            redis-server-a     ClusterIP   172.21.172.63    <none>        6379/TCP    9m38s
+            redis-server-b     ClusterIP   172.21.114.86    <none>        6379/TCP    9m35s
+            redis-server-c     ClusterIP   172.21.168.102   <none>        6379/TCP    9m30s
+      east:
+        - run: kubectl get service 
+          output: |
+            NAME               TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)     AGE
+            redis-sentinel-a   ClusterIP   172.21.63.112    <none>        26379/TCP   9m48s
+            redis-sentinel-b   ClusterIP   172.21.70.155    <none>        26379/TCP   9m41s
+            redis-sentinel-c   ClusterIP   172.21.222.171   <none>        26379/TCP   9m36s
+            redis-server-a     ClusterIP   172.21.211.253   <none>        6379/TCP    9m48s
+            redis-server-b     ClusterIP   172.21.125.230   <none>        6379/TCP    9m41s
+            redis-server-c     ClusterIP   172.21.255.86    <none>        6379/TCP    9m38s
+  - title: Deploy the Skupper gateway to centrally access redis services
+    preamble: |
+      We have established connectivity between three namespaces and have 
+      made the Redis servers in each namespace available to the peer servers.
+      We will deploy a gateway to enable the redis-cli application to connect 
+      and query each of the servers and sentinels deployed. We will assign each 
+      server a unique port number to distinguish the redis-cli target.
+    commands:
+      east:
+        - run: ./redis-cli-gateway.sh
+          sleep: 30
+        - run: skupper gateway status
+          output: |
+            Gateway Definitions:
+            ╰─ hostname-username type: service version: 1.17.1 url: amqp://127.0.0.1:5672
+               ╰─ Forwards:
+                  ├─ redis-server-b:6379 tcp redis-server-b:6379 0.0.0.0 6380:6380
+                  ├─ redis-server-a:6379 tcp redis-server-a:6379 0.0.0.0 6379:6379
+                  ├─ redis-server-c:6379 tcp redis-server-c:6379 0.0.0.0 6381:6381
+                  ├─ redis-sentinel-a:26379 tcp redis-sentinel-a:26379 0.0.0.0 26379:26379
+                  ├─ redis-sentinel-b:26379 tcp redis-sentinel-b:26379 0.0.0.0 26380:26380
+                  ╰─ redis-sentinel-c:26379 tcp redis-sentinel-c:26379 0.0.0.0 26381:26381
+  - title: Attach to prmary redis server and verify the ROLE
+    commands:
+      east:
+        - run: redis-cli -p 6379
+          output: |
+            127.0.0.1:6379>
+        - run: 127.0.0.1:6379> ROLE
+          output: |
+            1) "master"
+            2) (integer) 576461
+            3) 1) 1) "redis-server-b"
+                  2) "6379"
+                  3) "576159"
+               2) 1) "redis-server-c"
+                  2) "6379"
+               3) "576461"
+        - run: 127.0.0.1:6379> exit               
+  - title: Attach to the first replica servier and verify the ROLE
+    commands:
+      east:
+        - run: redis-cli -p 6380
+        - run: 127.0.0.1:6380> ROLE
+        - run: 127.0.0.1:6380> exit
+          output: |
+            1) "slave"
+            2) "redis-server-a"
+            3) (integer) 6379
+            4) "connected"
+            5) (integer) 714873
+  - title: Attach to the second replica servier and verify the ROLE
+    commands:
+      east:            
+        - run: redis-cli -p 6381
+        - run: 127.0.0.1:6381> ROLE
+        - run: 127.0.0.1:6381> exit
+          output: |
+            1) "slave"
+            2) "redis-server-a"
+            3) (integer) 6379
+            4) "connected"
+            5) (integer) 75973
+  - title: Attach to first redis sentinel and verify the primary status
+    commands:
+      east:
+        - run: redis-cli -p 26379
+        - run: 127.0.0.1:26379> sentinel master redis-skupper
+        - run: 127.0.0.1:26379> exit
+          output: |
+            1) "name"
+            2) "redis-skupper"
+            3) "ip"
+            4) "redis-server-a"
+            5) "port"
+            6) "6379"
+            7) "runid"
+            8) "e6e9e131eb80b05c528100a37c1bcc40fddd275c"
+            9) "flags"
+            10) "master"            
+            ...
+  - title: Attach to the second redis sentinel and verify the primary status
+    commands:
+      east:
+        - run: redis-cli -p 26380
+        - run: 127.0.0.1:26380> sentinel master redis-skupper
+        - run: 127.0.0.1:26380> exit
+          output: |
+            1) "name"
+            2) "redis-skupper"
+            3) "ip"
+            4) "redis-server-a"
+            5) "port"
+            6) "6379"
+            7) "runid"
+            8) "e6e9e131eb80b05c528100a37c1bcc40fddd275c"
+            9) "flags"
+            10) "master"
+            ...
+  - title: Attach to the third redis sentinel and verify the primary status
+    commands:
+      east:
+        - run: redis-cli -p 26381
+        - run: 127.0.0.1:26381> sentinel master redis-skupper
+        - run: 127.0.0.1:26381> exit
+          output: |
+            1) "name"
+            2) "redis-skupper"
+            3) "ip"
+            4) "redis-server-a"
+            5) "port"
+            6) "6379"
+            7) "runid"
+            8) "e6e9e131eb80b05c528100a37c1bcc40fddd275c"
+            9) "flags"
+            10) "master"
+            ...            
+  - title: Deploy the wiki-getter service
+    preamble: |
+      We will choose one of the example namespaces to create a wiki-getter
+      deployment and service. The client in this service will determine the 
+      Sentinel service to access the current Redis primary servier for 
+      query and cache updates. 
+    commands:
+      north:
+        - run: kubectl apply -f server.yaml
+          await_external_ip: [service/wiki-getter]
+        - run: kubectl get service wiki-getter
+          output: |
+            NAME          TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)          AGE
+            wiki-getter   LoadBalancer   10.96.10.149   10.96.10.149   5050:31495/TCP   8m29s
+  - title: Test the application
+    preamble: |
+      Look up the external URL and use `curl` to send a request to query the Wikipedia API
+      url. Note the *X-Response-Time* header for the first query. The application will check 
+      the redis cache and if not found will fetch from the Wikipedia API. If the content has 
+      been stored, the application will provide the response directly. 
+    commands:
+      north:
+        - run: "curl -f -I --head $(kubectl get service wiki-getter -o jsonpath='http://{.status.loadBalancer.ingress[0].ip}:5050/api/search?query=Prague')"
+          output: |
+            HTTP/1.1 200 OK
+            X-Powered-By: Express
+            Content-Type: application/json; charset=utf-8
+            Content-Length: 94742
+            ETag: W/"17216-6dDBCGBfQL9HEZ/y5HfTTPfPJ74"
+            X-Response-Time: 1697.655ms
+            ...
+        - run: "curl -f -I --head $(kubectl get service wiki-getter -o jsonpath='http://{.status.loadBalancer.ingress[0].ip}:5050/api/search?query=Prague')"
+          output: |
+            HTTP/1.1 200 OK
+            X-Powered-By: Express
+            Content-Type: application/json; charset=utf-8
+            Content-Length: 94740
+            ETag: W/"17214-yf2/rssRjz6EnT8MQfVDicvviFY"
+            X-Response-Time: 5.566ms
+            ...
+    postamble: |
+      **Note:** If the embedded `kubectl get` command fails to get the
+      IP address, you can find it manually by running `kubectl get
+      services` and looking up the external IP of the
+      `wiki-getter` service.
+summary: |
+  This example locates the redis server and sentinel services in different
+  namespaces, on different clusters.  Ordinarily, this means that they
+  have no way to communicate unless they are exposed to the public
+  internet.
+
+  Introducing Skupper into each namespace allows us to create a virtual
+  application network that can connect redis services in different clusters.
+  Any service exposed on the application network is represented as a
+  local service in all of the linked namespaces.
+
+  The redis primary server is located in `north`, but the redis replica 
+  services in `west` and `east` can "see" it as if it were local.
+  Redis replicat operations take place by service name and Skupper 
+  forwards the requests to the namespace where the corresponding server 
+  is running and routes the response back appropriately.
+cleaning_up:
+  preamble: !string cleaning_up_preamble
+  commands:
+    north: 
+      - run: kubectl delete -f server.yaml
+      - run: ./unexpose-deployments-a.sh
+      - run: kubectl delete -f redis-a.yaml
+      - run: skupper delete
+    west:
+      - run: ./unexpose-deployments-b.sh
+      - run: kubectl delete -f redis-b.yaml
+      - run: skupper delete
+    east:
+      - run: skupper gateway delete
+      - run: ./unexpose-deployments-b.sh
+      - run: kubectl delete -f redis-b.yaml
+      - run: skupper delete
+next_steps: !string next_steps

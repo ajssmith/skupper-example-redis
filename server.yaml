@@ -30,4 +30,4 @@ spec:
     targetPort: 5050
   selector:
     application: wiki-getter
-  type: ClusterIP
+  type: LoadBalancer
