@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: quay.io/ajssmith/wiki-getter
+        image: quay.io/skupper/wiki-getter
         imagePullPolicy: Always
         ports:
           - containerPort: 5050

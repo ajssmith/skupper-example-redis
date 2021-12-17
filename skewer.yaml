@@ -122,8 +122,9 @@ steps:
       server a unique port number to distinguish the redis-cli target.
     commands:
       east:
-        - run: ./redis-cli-gateway.sh
-          sleep: 30
+        - run: skupper gateway init --config redis-cli-gateway.yaml
+          output: |
+            Skupper gateway 'username-hostname' created. Use 'skupper gateway status' to get more informaiton.
         - run: skupper gateway status
           output: |
             Gateway Definitions:
@@ -233,12 +234,12 @@ steps:
   - title: Deploy the wiki-getter service
     preamble: |
       We will choose one of the example namespaces to create a wiki-getter
-      deployment and service. The client in this service will determine the 
-      Sentinel service to access the current Redis primary servier for 
-      query and cache updates. 
+      deployment and service. The client in this service will determine the
+      Sentinel service to access the current Redis primary server for
+      query and cache updates.
     commands:
       north:
-        - run: kubectl apply -f server.yaml
+        - run: kubectl apply -f wiki-getter.yaml
           await_external_ip: [service/wiki-getter]
         - run: kubectl get service wiki-getter
           output: |
@@ -288,8 +289,8 @@ summary: |
 
   The redis primary server is located in `north`, but the redis replica 
   services in `west` and `east` can "see" it as if it were local.
-  Redis replicat operations take place by service name and Skupper 
-  forwards the requests to the namespace where the corresponding server 
+  Redis replica operations take place by service name and Skupper
+  forwards the requests to the namespace where the corresponding server
   is running and routes the response back appropriately.
 cleaning_up:
   preamble: !string cleaning_up_preamble
@@ -305,7 +306,7 @@ cleaning_up:
       - run: skupper delete
     east:
       - run: skupper gateway delete
-      - run: ./unexpose-deployments-b.sh
-      - run: kubectl delete -f redis-b.yaml
+      - run: ./unexpose-deployments-c.sh
+      - run: kubectl delete -f redis-c.yaml
       - run: skupper delete
 next_steps: !string next_steps

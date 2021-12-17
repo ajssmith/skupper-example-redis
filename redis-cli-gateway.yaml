@@ -1,0 +1,60 @@
+name: redis-cli
+qdr-listeners:
+    - name: amqp
+      host: localhost
+      port: 5672
+forwards:
+    - name: ingress-redis-server-b:6379
+      host: 0.0.0.0
+      service:
+        address: redis-server-b:6379
+        protocol: tcp
+        ports:
+            - 6380
+      target_ports:
+        - 6380
+    - name: ingress-redis-server-c:6379
+      host: 0.0.0.0
+      service:
+        address: redis-server-c:6379
+        protocol: tcp
+        ports:
+            - 6381
+      target_ports:
+        - 6381
+    - name: ingress-redis-sentinel-a:26379
+      host: 0.0.0.0
+      service:
+        address: redis-sentinel-a:26379
+        protocol: tcp
+        ports:
+            - 26379
+      target_ports:
+        - 26379
+    - name: ingress-redis-sentinel-b:26379
+      host: 0.0.0.0
+      service:
+        address: redis-sentinel-b:26379
+        protocol: tcp
+        ports:
+            - 26380
+      target_ports:
+        - 26380
+    - name: ingress-redis-sentinel-c:26379
+      host: 0.0.0.0
+      service:
+        address: redis-sentinel-c:26379
+        protocol: tcp
+        ports:
+            - 26381
+      target_ports:
+        - 26381
+    - name: ingress-redis-server-a:6379
+      host: 0.0.0.0
+      service:
+        address: redis-server-a:6379
+        protocol: tcp
+        ports:
+            - 6379
+      target_ports:
+        - 6379

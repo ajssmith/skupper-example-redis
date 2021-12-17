@@ -173,14 +173,8 @@ skupper init
 Console for _north_:
 
 ~~~ shell
-skupper init --ingress none
+skupper init
 ~~~
-
-Here we are using `--ingress none` in one of the namespaces simply to
-make local development with Minikube easier.  (It's tricky to run two
-Minikube tunnels on one host.)  The `--ingress none` option is not
-required if your two namespaces are on different hosts or on public
-clusters.
 
 ## Step 5: Check the status of your namespaces
 
@@ -393,13 +387,17 @@ server a unique port number to distinguish the redis-cli target.
 Console for _east_:
 
 ~~~ shell
-./redis-cli-gateway.sh
+skupper gateway init --config redis-cli-gateway.yaml
 skupper gateway status
 ~~~
 
 Sample output:
 
 ~~~
+$ skupper gateway init --config redis-cli-gateway.yaml
+Skupper gateway 'username-hostname' created. Use 'skupper gateway status' to get more informaiton.
+
+$ skupper gateway status
 Gateway Definitions:
 ╰─ hostname-username type: service version: 1.17.1 url: amqp://127.0.0.1:5672
    ╰─ Forwards:
@@ -559,14 +557,14 @@ Sample output:
 ## Step 17: Deploy the wiki-getter service
 
 We will choose one of the example namespaces to create a wiki-getter
-deployment and service. The client in this service will determine the 
-Sentinel service to access the current Redis primary servier for 
+deployment and service. The client in this service will determine the
+Sentinel service to access the current Redis primary server for
 query and cache updates.
 
 Console for _north_:
 
 ~~~ shell
-kubectl apply -f server.yaml
+kubectl apply -f wiki-getter.yaml
 kubectl get service wiki-getter
 ~~~
 
@@ -632,8 +630,8 @@ local service in all of the linked namespaces.
 
 The redis primary server is located in `north`, but the redis replica 
 services in `west` and `east` can "see" it as if it were local.
-Redis replicat operations take place by service name and Skupper 
-forwards the requests to the namespace where the corresponding server 
+Redis replica operations take place by service name and Skupper
+forwards the requests to the namespace where the corresponding server
 is running and routes the response back appropriately.
 
 ## Cleaning up
@@ -662,8 +660,8 @@ Console for _east_:
 
 ~~~ shell
 skupper gateway delete
-./unexpose-deployments-b.sh
-kubectl delete -f redis-b.yaml
+./unexpose-deployments-c.sh
+kubectl delete -f redis-c.yaml
 skupper delete
 ~~~
 

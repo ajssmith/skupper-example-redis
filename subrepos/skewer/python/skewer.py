@@ -99,11 +99,10 @@ _standard_steps = {
                 "await": ["deployment/skupper-service-controller", "deployment/skupper-router"],
             }],            
             [{
-                "run": "skupper init --ingress none",
+                "run": "skupper init",
                 "await": ["deployment/skupper-service-controller", "deployment/skupper-router"],
             }],
         ],
-        "postamble": _strings["install_skupper_in_your_namespaces_postamble"],
     },
     "check_the_status_of_your_namespaces": {
         "title": "Check the status of your namespaces",
